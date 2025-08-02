@@ -1,4 +1,3 @@
-# ✅ functions.py (final version)
 import os, time, gc, random, csv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -287,3 +286,4 @@ def train_and_validate_transformers(
         "epoch_times": epoch_times,
         "history": history
     }
+
