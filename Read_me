@@ -146,40 +146,6 @@ Epoch Wise Score for each model during training and evaluating.
 📍 Epoch 48/60 | Val Loss: 0.1196 | F1: 0.948 | Precision: 0.921 | Recall: 0.977 | MPS: 0.965 | Threshold: 0.23                                                                               
 📍 Epoch 49/60 | Val Loss: 0.1196 | F1: 0.948 | Precision: 0.921 | Recall: 0.976 | MPS: 0.965 | Threshold: 0.23                                                                               
 📍 Epoch 50/60 | Val Loss: 0.1155 | F1: 0.950 | Precision: 0.924 | Recall: 0.978 | MPS: 0.967 | Threshold: 0.28                                                                
-📍 Epoch 7/40 | Val Loss: 0.2771 | F1: 0.860 | Precision: 0.789 | Recall: 0.944 | MPS: 0.908 | Threshold: 0.27                                                                                
-📍 Epoch 8/40 | Val Loss: 0.2553 | F1: 0.875 | Precision: 0.812 | Recall: 0.947 | MPS: 0.917 | Threshold: 0.31                                                                                
-📍 Epoch 9/40 | Val Loss: 0.2416 | F1: 0.891 | Precision: 0.844 | Recall: 0.944 | MPS: 0.922 | Threshold: 0.28                                                                                
-📍 Epoch 10/40 | Val Loss: 0.2271 | F1: 0.890 | Precision: 0.834 | Recall: 0.954 | MPS: 0.928 | Threshold: 0.27                                                                               
-📍 Epoch 11/40 | Val Loss: 0.2208 | F1: 0.906 | Precision: 0.868 | Recall: 0.949 | MPS: 0.931 | Threshold: 0.25                                                                               
-📍 Epoch 12/40 | Val Loss: 0.2033 | F1: 0.905 | Precision: 0.859 | Recall: 0.958 | MPS: 0.936 | Threshold: 0.30                                                                               
-📍 Epoch 13/40 | Val Loss: 0.1947 | F1: 0.910 | Precision: 0.864 | Recall: 0.960 | MPS: 0.939 | Threshold: 0.27                                                                               
-📍 Epoch 14/40 | Val Loss: 0.1893 | F1: 0.910 | Precision: 0.861 | Recall: 0.964 | MPS: 0.941 | Threshold: 0.24                                                                               
-📍 Epoch 15/40 | Val Loss: 0.1819 | F1: 0.913 | Precision: 0.867 | Recall: 0.964 | MPS: 0.943 | Threshold: 0.29                                                                               
-📍 Epoch 16/40 | Val Loss: 0.1784 | F1: 0.913 | Precision: 0.866 | Recall: 0.966 | MPS: 0.944 | Threshold: 0.24                                                                               
-📍 Epoch 17/40 | Val Loss: 0.1708 | F1: 0.914 | Precision: 0.865 | Recall: 0.970 | MPS: 0.947 | Threshold: 0.21                                                                               
-📍 Epoch 18/40 | Val Loss: 0.1671 | F1: 0.920 | Precision: 0.878 | Recall: 0.967 | MPS: 0.948 | Threshold: 0.25                                                                               
-📍 Epoch 19/40 | Val Loss: 0.1626 | F1: 0.920 | Precision: 0.874 | Recall: 0.971 | MPS: 0.950 | Threshold: 0.29                                                                               
-📍 Epoch 20/40 | Val Loss: 0.1580 | F1: 0.924 | Precision: 0.882 | Recall: 0.971 | MPS: 0.952 | Threshold: 0.23                                                                               
-📍 Epoch 21/40 | Val Loss: 0.1531 | F1: 0.925 | Precision: 0.881 | Recall: 0.973 | MPS: 0.953 | Threshold: 0.27                                                                               
-📍 Epoch 22/40 | Val Loss: 0.1488 | F1: 0.931 | Precision: 0.894 | Recall: 0.971 | MPS: 0.955 | Threshold: 0.25                                                                               
-📍 Epoch 23/40 | Val Loss: 0.1445 | F1: 0.934 | Precision: 0.899 | Recall: 0.973 | MPS: 0.957 | Threshold: 0.31                                                                               
-📍 Epoch 24/40 | Val Loss: 0.1413 | F1: 0.935 | Precision: 0.899 | Recall: 0.974 | MPS: 0.958 | Threshold: 0.29                                                                               
-📍 Epoch 25/40 | Val Loss: 0.1411 | F1: 0.933 | Precision: 0.896 | Recall: 0.973 | MPS: 0.957 | Threshold: 0.30                                                                               
-📍 Epoch 26/40 | Val Loss: 0.1384 | F1: 0.936 | Precision: 0.902 | Recall: 0.973 | MPS: 0.958 | Threshold: 0.26                                                                               
-📍 Epoch 27/40 | Val Loss: 0.1326 | F1: 0.941 | Precision: 0.909 | Recall: 0.975 | MPS: 0.961 | Threshold: 0.25                                                                               
-📍 Epoch 28/40 | Val Loss: 0.1281 | F1: 0.933 | Precision: 0.891 | Recall: 0.980 | MPS: 0.961 | Threshold: 0.21                                                                               
-📍 Epoch 29/40 | Val Loss: 0.1295 | F1: 0.937 | Precision: 0.900 | Recall: 0.978 | MPS: 0.961 | Threshold: 0.26                                                                               
-📍 Epoch 30/40 | Val Loss: 0.1254 | F1: 0.945 | Precision: 0.917 | Recall: 0.974 | MPS: 0.962 | Threshold: 0.32                                                                               
-📍 Epoch 31/40 | Val Loss: 0.1246 | F1: 0.942 | Precision: 0.910 | Recall: 0.977 | MPS: 0.963 | Threshold: 0.30                                                                               
-📍 Epoch 32/40 | Val Loss: 0.1208 | F1: 0.943 | Precision: 0.910 | Recall: 0.979 | MPS: 0.964 | Threshold: 0.22                                                                               
-📍 Epoch 33/40 | Val Loss: 0.1210 | F1: 0.950 | Precision: 0.925 | Recall: 0.976 | MPS: 0.965 | Threshold: 0.33                                                                               
-📍 Epoch 34/40 | Val Loss: 0.1188 | F1: 0.945 | Precision: 0.914 | Recall: 0.978 | MPS: 0.964 | Threshold: 0.27                                                                               
-📍 Epoch 35/40 | Val Loss: 0.1175 | F1: 0.950 | Precision: 0.926 | Recall: 0.974 | MPS: 0.964 | Threshold: 0.27                                                                               
-📍 Epoch 36/40 | Val Loss: 0.1195 | F1: 0.948 | Precision: 0.921 | Recall: 0.977 | MPS: 0.965 | Threshold: 0.25                                                                               
-📍 Epoch 37/40 | Val Loss: 0.1183 | F1: 0.947 | Precision: 0.916 | Recall: 0.980 | MPS: 0.966 | Threshold: 0.18                                                                               
-📍 Epoch 38/40 | Val Loss: 0.1125 | F1: 0.954 | Precision: 0.932 | Recall: 0.977 | MPS: 0.967 | Threshold: 0.23                                                                               
-📍 Epoch 39/40 | Val Loss: 0.1148 | F1: 0.949 | Precision: 0.920 | Recall: 0.980 | MPS: 0.967 | Threshold: 0.16                                                                               
-📍 Epoch 40/40 | Val Loss: 0.1141 | F1: 0.957 | Precision: 0.940 | Recall: 0.974 | MPS: 0.967 | Threshold: 0.34                                                                               
 ✅ Saved metrics for ResNet18
 🎯 Best Priority Score: 0.9672
 ⏱️ Time: 161.99 mins
