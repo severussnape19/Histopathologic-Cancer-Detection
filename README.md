@@ -50,3 +50,4 @@ Thanks for stopping by! Happy coding and here’s to making a difference!
 --- 
 
 Colab Notebook Link : https://colab.research.google.com/drive/1j3sN92REYKObW8JKnhQrTc5-Pss2I30y?usp=sharing
+Dataset Link: https://www.kaggle.com/c/histopathologic-cancer-detection/data
