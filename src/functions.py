@@ -5,91 +5,292 @@ from tqdm import tqdm
 from collections import deque
 import cv2
 import numpy as np
+import pandas as pd
 from torchvision.transforms import ToPILImage
 import matplotlib.pyplot as plt
-
+from PIL import Image
 import torch
+import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
 from sklearn.metrics import (
     precision_score, recall_score, f1_score,
     accuracy_score, confusion_matrix
 )
+from src.Models import (CancerClassifierResNet18, CancerClassifierResNet50, TimmEfficientNet, 
+                        CancerClassifierCoaTLiteTiny, CancerClassifierSwinTiny, CancerClassifierConvNeXTTiny)
 
-class GradCAM:
-    def __init__(self, model, target_layer, device):
-        self.model = model.eval()
-        self.target_layer = target_layer
-        self.device = device
-        self.gradients = None
-        self.activations = None
-        self._register_hooks()
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def _register_hooks(self):
-        def forward_hook(module, input, output):
-            self.activations = output.detach()
+### GRAD-CAM ###
 
-        def backward_hook(module, grad_input, grad_output):
-            self.gradients = grad_output[0].detach()
 
-        self.target_layer.register_forward_hook(forward_hook)
-        self.target_layer.register_backward_hook(backward_hook)
+def compute_gradcam(model, input_tensor, target_layer, threshold=0.5):
+    activations, gradients = [], []
 
-    def generate(self, input_tensor, class_idx=None):
-        self.model.zero_grad()
-        input_tensor = input_tensor.unsqueeze(0).to(self.device)
+    def forward_hook(module, input, output):
+        activations.append(output)
 
-        output = self.model(input_tensor)
-        if class_idx is None:
-            class_idx = output.argmax(dim=1).item()
+    def backward_hook(module, grad_in, grad_out):
+        gradients.append(grad_out[0])
 
-        target = output[:, class_idx]
-        target.backward()
+    fwd_handle = target_layer.register_forward_hook(forward_hook)
+    bwd_handle = target_layer.register_full_backward_hook(backward_hook)
 
-        gradients = self.gradients
-        activations = self.activations
+    input_tensor = input_tensor.unsqueeze(0)
+    output = model(input_tensor)
+    confidence = torch.sigmoid(output).item()
+    pred_label = int(confidence >= threshold)
 
-        pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
-        weighted_activations = activations.squeeze(0) * pooled_gradients[:, None, None]
-        cam = weighted_activations.sum(dim=0).cpu().numpy()
-        cam = np.maximum(cam, 0)
-        cam = cv2.resize(cam, (input_tensor.shape[3], input_tensor.shape[2]))
-        cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
-        return cam
+    model.zero_grad()
+    output.backward()
+    
+    act = activations[0].detach()
+    grad = gradients[0].detach()
+    pooled_grads = torch.mean(grad, dim=[0, 2, 3])
+    for i in range(act.shape[1]):
+        act[:, i, :, :] *= pooled_grads[i]
 
-def overlay_gradcam(image_tensor, cam, alpha=0.4):
-    img = image_tensor.permute(1, 2, 0).cpu().numpy()
-    img = (img - img.min()) / (img.max() - img.min())
-    img = np.uint8(255 * img)
+    heatmap = torch.mean(act, dim=1).squeeze()
+    heatmap = F.relu(heatmap)
+    heatmap /= heatmap.max() + 1e-8
+    heatmap = heatmap.cpu().numpy()
 
-    heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
-    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
+    fwd_handle.remove()
+    bwd_handle.remove()
 
-    overlay = cv2.addWeighted(heatmap, alpha, img, 1 - alpha, 0)
-    return overlay
+    return heatmap, confidence, pred_label
 
-def generate_gradcam_samples(model, test_loader, model_name, save_dir, device):
-    import os
-    model.eval()
+def plot_gradcam_with_conf(image_pil, heatmap, confidence, pred_label, true_label=None, title="GradCAM"):
+    image_np = np.array(image_pil.resize((224, 224))) / 255.0
+    heatmap_resized = cv2.resize(heatmap, (224, 224))
+    heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_TURBO)
+    overlay = cv2.addWeighted(np.uint8(image_np * 255), 0.6, heatmap_color, 0.4, 0)
 
-    # Customize for your model structure
-    if hasattr(model.model, "layer4"):
-        target_layer = model.model.layer4[-1]
+    plt.figure(figsize=(4, 4))
+    plt.imshow(overlay)
+    
+    label_str = "Cancerous" if pred_label else "Non-Cancerous"
+    gt_str = f"GT: {true_label} | " if true_label is not None else ""
+    plt.title(f"{gt_str}Pred: {label_str} ({confidence*100:.2f}% conf)", fontsize=11)
+    plt.axis("off")
+    plt.show()
+
+def run_gradcam_for_model(MODELS, model_name, CSV_PATH, IMG_DIR, seed = 123):
+    config = MODELS[model_name]
+    model = config["model"]()
+    target_layer = config["target_layer"](model)
+    threshold = config["threshold"]
+
+    df = pd.read_csv(CSV_PATH).sample(n=18, random_state=seed)
+    results = []
+
+    for idx, row in df.iterrows():
+        fname = row['filename']
+        true_label = row['label']
+        img_path = IMG_DIR / fname
+
+        try:
+            image_pil, tensor = load_image(img_path)
+
+            if "CoaT" in model_name or "Swin" in model_name:
+                heatmap, confidence, pred_label = compute_transformer_gradcam(
+                    model, tensor, target_layer, threshold=threshold
+                )
+            else:
+                heatmap, confidence, pred_label = compute_gradcam(
+                    model, tensor, target_layer, threshold=threshold
+                )
+
+            image_np = np.array(image_pil.resize((224, 224))) / 255.0
+            heatmap_resized = cv2.resize(heatmap, (224, 224))
+            heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_TURBO)
+            overlay = cv2.addWeighted(np.uint8(image_np * 255), 0.6, heatmap_color, 0.4, 0)
+
+            results.append((overlay, confidence, pred_label, true_label))
+
+        except Exception as e:
+            print(f" Error processing {fname}: {e}")
+
+    cols = 6
+    rows = (len(results) + cols - 1) // cols
+    plt.figure(figsize=(cols * 3, rows * 3))
+
+    for i, (overlay, conf, pred, true) in enumerate(results):
+        plt.subplot(rows, cols, i + 1)
+        plt.imshow(overlay)
+        pred_str = "Cancerous" if pred else "Non-Cancerous"
+        color = 'green' if pred == true else 'red'
+        plt.title(f"{pred_str}\n{conf*100:.1f}% | GT: {true}", fontsize=10, color=color)
+        plt.axis("off")
+
+    plt.tight_layout()
+    plt.suptitle(f"Grad-CAM for {model_name}", fontsize=16)
+    plt.subplots_adjust(top=0.90)
+    plt.show()
+
+def compute_transformer_gradcam(model, input_tensor, target_layer, threshold=0.5):
+    activations, gradients = [], []
+
+    def forward_hook(module, input, output):
+        activations.append(output)
+
+    def backward_hook(module, grad_in, grad_out):
+        gradients.append(grad_out[0])
+
+    fwd_handle = target_layer.register_forward_hook(forward_hook)
+    bwd_handle = target_layer.register_full_backward_hook(backward_hook)
+
+    output = model(input_tensor.unsqueeze(0)) 
+    confidence = torch.sigmoid(output).item()
+    pred_label = int(confidence >= threshold)
+
+    model.zero_grad()
+    output.backward()
+
+    act = activations[0].detach()
+    grad = gradients[0].detach()
+
+    if act.ndim == 4:  # CNN like: [B, C, H, W]
+        weights = grad.mean(dim=(2, 3), keepdim=True)  # /Global avg pooling
+        cam = (weights * act).sum(dim=1, keepdim=True)  # [B, 1, H, W]
+        cam = F.relu(cam).squeeze().cpu().numpy()
+        cam = cam / (cam.max() + 1e-8)
+    elif act.ndim == 3:  # Transformer like: [B, L, C]
+        weights = grad.mean(dim=1, keepdim=True)  # [B, 1, C]
+        cam = (weights * act).sum(dim=-1)    # [B, L]
+        cam = F.relu(cam).squeeze()
+        cam = cam / (cam.max() + 1e-8)
+        num_tokens = cam.numel()
+        side = int(num_tokens ** 0.5)
+        cam = cam[:side * side].reshape(side, side).cpu().numpy()
     else:
-        target_layer = list(model.model.children())[-2]  # fallback
+        raise ValueError(f"Unsupported activation shape: {act.shape}")
 
-    cam_generator = GradCAM(model, target_layer, device)
-    os.makedirs(save_dir, exist_ok=True)
+    fwd_handle.remove()
+    bwd_handle.remove()
 
-    for i, (img, label) in enumerate(test_loader):
-        if i >= 5: break
+    return cam, confidence, pred_label
 
-        cam = cam_generator.generate(img[0].to(device))
-        overlay = overlay_gradcam(img[0], cam)
+def overlay_heatmap(image_pil, heatmap, alpha=0.6):
+    image_np = np.array(image_pil.resize((224, 224))) / 255.0
+    heatmap_resized = cv2.resize(heatmap, (224, 224))
+    heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_TURBO)
+    return cv2.addWeighted(np.uint8(image_np * 255), alpha, heatmap_color, 1 - alpha, 0)
 
-        out_img = ToPILImage()(torch.tensor(overlay).permute(2, 0, 1).float() / 255)
-        out_img.save(os.path.join(save_dir, f"{model_name}_sample{i}.png"))
 
-    print(f"✅ GradCAMs saved to {save_dir}")
+def compare_gradcams_on_image(filename, IMG_DIR, MODELS, df, transform):
+    """
+    Compares GradCAM overlays across multiple models for a given image.
+
+    Args:
+        filename (str): Image filename to compare.
+        IMG_DIR (Path): Directory containing images.
+        MODELS (dict): Dictionary with model config, threshold, and target layer function.
+        df (pd.DataFrame): DataFrame containing 'filename' and 'label' columns.
+        transform (callable): Image transform to apply (should match training).
+    """
+    row = df[df["filename"] == filename].iloc[0]
+    true_label = row["label"]
+    img_path = IMG_DIR / filename
+    image_pil, tensor = load_image(img_path, transform)
+
+    model_names = list(MODELS.keys())
+    overlays = [("Original", np.array(image_pil.resize((224, 224))), None, None, None)]
+
+    for model_name in model_names:
+        config = MODELS[model_name]
+        model = config["model"]()
+        threshold = config["threshold"]
+        target_layer = config["target_layer"](model)
+
+        try:
+            ### GradCAM: transformer or CNN #### IMP
+            if any(k in model_name for k in ["CoaT", "Swin", "ConvNeXT"]):
+                heatmap, confidence, pred_label = compute_transformer_gradcam(
+                    model, tensor, target_layer, threshold=threshold
+                )
+            else:
+                heatmap, confidence, pred_label = compute_gradcam(
+                    model, tensor, target_layer, threshold=threshold
+                )
+
+            overlay = overlay_heatmap(image_pil, heatmap)
+            overlays.append((model_name, overlay, confidence, pred_label, true_label))
+
+        except Exception as e:
+            print(f"⚠️ {model_name} failed: {e}")
+            blank = np.zeros((224, 224, 3), dtype=np.uint8)
+            overlays.append((model_name, blank, 0.0, None, true_label))
+
+    # Plot
+    n = len(overlays)
+    plt.figure(figsize=(4 * n, 4))
+    for i, (title, img, conf, pred, gt) in enumerate(overlays):
+        plt.subplot(1, n, i + 1)
+        plt.imshow(img)
+        if conf is None:
+            plt.title("Original", fontsize=12)
+        else:
+            pred_str = "Cancer" if pred else "Non-Cancer"
+            correct = pred == gt
+            color = "green" if correct else "red"
+            plt.title(f"{title}\n{pred_str} ({conf * 100:.1f}%)", color=color, fontsize=12)
+        plt.axis("off")
+
+    plt.suptitle(f"GradCAM Comparison | Ground Truth: {true_label}", fontsize=16, weight='bold')
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    plt.show()
+
+
+
+
+
+
+
+
+def load_image(img_path, transform=None):
+    image = Image.open(img_path).convert("RGB")
+    tensor = transform(image).to(DEVICE)
+    return image, tensor
+
+def load_model(cls, weights_path):
+    model = cls()
+    checkpoint = torch.load(weights_path, map_location=DEVICE, weights_only=False)
+    state_dict = {k.replace("base_model.", "base."): v for k, v in checkpoint["model_state"].items()}
+    model.load_state_dict(state_dict)
+    model.to(DEVICE).eval()
+    return model
+
+def load_effnet_model(weights_path, model = TimmEfficientNet()):
+    # model = TimmEfficientNet()
+    if weights_path is not None:
+        checkpoint = torch.load(weights_path, map_location=DEVICE, weights_only=False)
+        if "model_state" in checkpoint:
+            model.load_state_dict(checkpoint["model_state"])
+        else:
+            model.load_state_dict(checkpoint)
+    model.to(DEVICE).eval()
+    return model
+
+def load_transformer_model(cls, weights_path):
+    model = cls(pretrained=False)
+    checkpoint = torch.load(weights_path, map_location=DEVICE, weights_only=False)
+    if "model_state" in checkpoint:
+        model.load_state_dict(checkpoint["model_state"])
+    else:
+        model.load_state_dict(checkpoint)
+    model.to(DEVICE).eval()
+    return model
+
+def get_image_tensor_and_label(row, transform, image_dir):
+    img_path = os.path.join(image_dir, row["filename"])
+    label = int(row["label"])
+
+    img = Image.open(img_path).convert("RGB")
+    image_tensor = transform(img).unsqueeze(0).to(DEVICE)
+
+    return image_tensor, label
 
 
 def set_seed(seed=42):
@@ -113,6 +314,7 @@ def plot_metrics_over_epochs(metrics_dict, save_dir="graphs/metrics"):
         plt.legend()
         plt.savefig(os.path.join(save_dir, f"{metric}_plot.png"))
         plt.close()
+
 
 def train_and_validate_transformers(
     model, train_loader, val_loader, loss_fn, optimizer,
@@ -262,7 +464,7 @@ def train_and_validate_transformers(
         else:
             wait += 1
             if wait >= patience:
-                print("⏹️ Early stopping triggered.")
+                print("Early stopping triggered.")
                 break
 
         epoch_times.append(time.time() - start_time)
@@ -287,3 +489,152 @@ def train_and_validate_transformers(
         "history": history
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+########### GRAD-CAM #########
+
+
+def run_gradcam_for_model(model_name, MODELS, CSV_PATH, IMG_DIR, load_image, sample_size=18, seed=123):
+    config = MODELS[model_name]
+    model = config["model"]()
+    model.eval()
+    target_layer = config["target_layer"](model)
+    threshold = config["threshold"]
+
+    def compute_gradcam(model, input_tensor, target_layer, threshold=0.5):
+        activations, gradients = [], []
+
+        def forward_hook(module, input, output):
+            activations.append(output)
+
+        def backward_hook(module, grad_in, grad_out):
+            gradients.append(grad_out[0])
+
+        fwd_handle = target_layer.register_forward_hook(forward_hook)
+        bwd_handle = target_layer.register_full_backward_hook(backward_hook)
+
+        input_tensor = input_tensor.unsqueeze(0)
+        output = model(input_tensor)
+        confidence = torch.sigmoid(output).item()
+        pred_label = int(confidence >= threshold)
+
+        model.zero_grad()
+        output.backward()
+        
+        act = activations[0].detach()
+        grad = gradients[0].detach()
+        pooled_grads = torch.mean(grad, dim=[0, 2, 3])
+        for i in range(act.shape[1]):
+            act[:, i, :, :] *= pooled_grads[i]
+
+        heatmap = torch.mean(act, dim=1).squeeze()
+        heatmap = F.relu(heatmap)
+        heatmap /= heatmap.max() + 1e-8
+        heatmap = heatmap.cpu().numpy()
+
+        fwd_handle.remove()
+        bwd_handle.remove()
+
+        return heatmap, confidence, pred_label
+
+    def compute_transformer_gradcam(model, input_tensor, target_layer, threshold=0.5):
+        activations, gradients = [], []
+
+        def forward_hook(module, input, output):
+            activations.append(output)
+
+        def backward_hook(module, grad_in, grad_out):
+            gradients.append(grad_out[0])
+
+        fwd_handle = target_layer.register_forward_hook(forward_hook)
+        bwd_handle = target_layer.register_full_backward_hook(backward_hook)
+
+        output = model(input_tensor.unsqueeze(0))
+        confidence = torch.sigmoid(output).item()
+        pred_label = int(confidence >= threshold)
+
+        model.zero_grad()
+        output.backward()
+
+        act = activations[0].detach()
+        grad = gradients[0].detach()
+
+        if act.ndim == 4:
+            weights = grad.mean(dim=(2, 3), keepdim=True)
+            cam = (weights * act).sum(dim=1, keepdim=True)
+            cam = F.relu(cam).squeeze().cpu().numpy()
+            cam = cam / (cam.max() + 1e-8)
+        elif act.ndim == 3:
+            weights = grad.mean(dim=1, keepdim=True)
+            cam = (weights * act).sum(dim=-1)
+            cam = F.relu(cam).squeeze()
+            cam = cam / (cam.max() + 1e-8)
+            num_tokens = cam.numel()
+            side = int(num_tokens ** 0.5)
+            cam = cam[:side * side].reshape(side, side).cpu().numpy()
+        else:
+            raise ValueError(f"Unsupported activation shape: {act.shape}")
+
+        fwd_handle.remove()
+        bwd_handle.remove()
+
+        return cam, confidence, pred_label
+
+    df = pd.read_csv(CSV_PATH).sample(n=sample_size, random_state=seed)
+    results = []
+
+    for idx, row in df.iterrows():
+        fname = row['filename']
+        true_label = row['label']
+        img_path = IMG_DIR / fname
+
+        try:
+            image_pil, tensor = load_image(img_path)
+
+            if any(k in model_name for k in ["CoaT", "Swin", "ConvNeXT"]):
+                heatmap, confidence, pred_label = compute_transformer_gradcam(
+                    model, tensor, target_layer, threshold=threshold
+                )
+            else:
+                heatmap, confidence, pred_label = compute_gradcam(
+                    model, tensor, target_layer, threshold=threshold
+                )
+
+            image_np = np.array(image_pil.resize((224, 224))) / 255.0
+            heatmap_resized = cv2.resize(heatmap, (224, 224))
+            heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_TURBO)
+            overlay = cv2.addWeighted(np.uint8(image_np * 255), 0.6, heatmap_color, 0.4, 0)
+
+            results.append((overlay, confidence, pred_label, true_label))
+
+        except Exception as e:
+            print(f" Error processing {fname}: {e}")
+
+    # Plotting
+    cols = 6
+    rows = (len(results) + cols - 1) // cols
+    plt.figure(figsize=(cols * 3, rows * 3))
+
+    for i, (overlay, conf, pred, true) in enumerate(results):
+        plt.subplot(rows, cols, i + 1)
+        plt.imshow(overlay)
+        pred_str = "Cancerous" if pred else "Non-Cancerous"
+        color = 'green' if pred == true else 'red'
+        plt.title(f"{pred_str}\n{conf*100:.1f}% | GT: {true}", fontsize=10, color=color)
+        plt.axis("off")
+
+    plt.tight_layout()
+    plt.suptitle(f"Grad-CAM for {model_name}", fontsize=16)
+    plt.subplots_adjust(top=0.90)
+    plt.show()

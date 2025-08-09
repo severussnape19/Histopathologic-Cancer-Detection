@@ -16,9 +16,7 @@ from torchvision.models import (
 from PIL import UnidentifiedImageError
 import timm
 
-# -------------------------
-# 📁 Dataset
-# -------------------------
+# Dataset Loader
 class HistopathologyDataset(Dataset):
     def __init__(self, csv_file, img_dir, transform=None):
         self.labels_df = pd.read_csv(csv_file)
@@ -43,19 +41,15 @@ class HistopathologyDataset(Dataset):
             image = Image.open(img_path).convert("RGB")
         except (UnidentifiedImageError, FileNotFoundError) as e:
             print(f"[⚠️ Skipping file] {img_path} -> {e}")
-            # Use a black image placeholder
             image = Image.new("RGB", (96, 96))
-            label = 0  # Or -1 to ignore this label later
+            label = 0  # Or I can use -1 to ignore this label later
 
         if self.transform:
             image = self.transform(image)
 
         return image, label
 
-
-# -------------------------
-# 🔬 Classic CNN (Toy Model)
-# -------------------------
+# Basic custom
 class CancerClassifierCNN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -63,7 +57,7 @@ class CancerClassifierCNN(nn.Module):
         self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
         self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
         self.pool = nn.MaxPool2d(2, 2)
-        self.fc1 = nn.Linear(64 * 28 * 28, 128)  # Assumes 224x224 input
+        self.fc1 = nn.Linear(64 * 28 * 28, 128)  
         self.fc2 = nn.Linear(128, 1)
 
     def forward(self, x):
@@ -74,9 +68,9 @@ class CancerClassifierCNN(nn.Module):
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
-# -------------------------
-# 🏛️ ResNet Variants
-# -------------------------
+
+# ResNet Variants
+
 class CancerClassifierResNet18(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
@@ -95,9 +89,9 @@ class CancerClassifierResNet50(nn.Module):
     def forward(self, x):
         return self.base(x)
 
-# -------------------------
-# 🌱 DenseNet
-# -------------------------
+
+# DenseNet
+
 class CancerClassifierDenseNet121(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
@@ -107,9 +101,8 @@ class CancerClassifierDenseNet121(nn.Module):
     def forward(self, x):
         return self.base(x)
 
-# -------------------------
-# ⚡ MobileNet
-# -------------------------
+
+## MobileNet
 class CancerClassifierMobileNetV3Large(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
@@ -120,9 +113,8 @@ class CancerClassifierMobileNetV3Large(nn.Module):
     def forward(self, x):
         return self.base(x)
 
-# -------------------------
-# 🔁 EfficientNet Variants
-# -------------------------
+
+ # EfficientNet Variants
 class TimmEfficientNet(nn.Module):
     def __init__(self, model_name="efficientnet_b0", pretrained=True, dropout=0.2):
         super().__init__()
@@ -150,9 +142,9 @@ class CancerClassifierEffNetV2S(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-# -------------------------
-# 🔬 Transformer-Based Models
-# -------------------------
+
+ # Transformer-Based Models #
+
 class CancerClassifierCoaTLiteTiny(nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
@@ -200,9 +192,7 @@ class CancerClassifierEfficientFormerL1(nn.Module):
         x = self.base_model(x)
         return self.classifier(x)
 
-# -------------------------
-# 📦 Model Exports
-# -------------------------
+# All model exports #
 __all__ = [
     "HistopathologyDataset",
     "CancerClassifierCNN",
