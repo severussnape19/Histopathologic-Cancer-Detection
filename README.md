@@ -23,18 +23,6 @@ Cancer detection from histopathology images is challenging but crucial. Early, a
 
 ---
 
-## How to use it?
-
-1. Clone the repo.  
-2. Prepare your dataset and image preprocessing pipeline.  
-3. Train the 6 CNN and Transformer base models on your data.  
-4. Generate meta features by stacking their predictions.  
-5. Train and ensemble the 3 meta learners on these meta features.  
-6. Tune classification thresholds based on your clinical priorities.  
-7. Evaluate carefully on unseen test data.
-
----
-
 ## Results you can trust
 
 - Recall ~0.99 — very few missed cancer cases.  
@@ -45,8 +33,8 @@ Cancer detection from histopathology images is challenging but crucial. Early, a
 
 ## What’s next?
 
-- Try level-2 stacking to push performance further.  
-- Add explainability tools to increase clinical trust.  
+- Create pesudo-labeled data from unlabled data.
+- Try level-2 stacking to push performance further.    
 - Wrap everything in an API or app for easy use by medical professionals.
 
 ---
@@ -57,4 +45,8 @@ Questions, suggestions, or just want to chat about medical AI? Open an issue or 
 
 ---
 
-Thanks for stopping by — happy coding and here’s to making a difference! 💙
+Thanks for stopping by! Happy coding and here’s to making a difference! 
+
+--- 
+
+Colab Notebook Link : https://colab.research.google.com/drive/1j3sN92REYKObW8JKnhQrTc5-Pss2I30y?usp=sharing
