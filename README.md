@@ -33,8 +33,6 @@ Cancer detection from histopathology images is challenging but crucial. Early, a
 
 ## What’s next?
 
-- Create pesudo-labeled data from unlabled data.
-- Try level-2 stacking to push performance further.    
 - Wrap everything in an API or app for easy use by medical professionals.
 
 ---
