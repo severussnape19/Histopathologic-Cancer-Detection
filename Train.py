@@ -97,7 +97,7 @@ def main():
     train_loader, val_loader, test_loader = prepare_dataloaders(
         train_csv, val_csv, test_csv, train_img_dir, val_img_dir, test_img_dir, batch_size)
 
-    print("✅ Data loaders ready.")
+    print("Data loaders ready.")
 
     pos_weight = torch.tensor([130908 / 89117], dtype=torch.float32).to(device)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -130,7 +130,7 @@ def main():
     ]
 
     for cfg in model_configs:
-        print(f"\n🚀 Training: {cfg['name']}")
+        print(f"\n Training: {cfg['name']}")
         try:
             model = cfg["model"]
             optimizer = optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=0.05)
@@ -166,15 +166,15 @@ def main():
             # Save best model checkpoint
             torch.save(model.state_dict(), f"models/{cfg['name']}/best_model.pth")
 
-            print(f"✅ Saved: {cfg['name']} | Best Priority Score: {results['best_priority_score']:.4f}")
-            print(f"⏱️ Time: {(time.time() - start) / 60:.2f} mins")
+            print(f" Saved: {cfg['name']} | Best Priority Score: {results['best_priority_score']:.4f}")
+            print(f" Time: {(time.time() - start) / 60:.2f} mins")
 
             del model, optimizer, scheduler, results
             torch.cuda.empty_cache()
             gc.collect()
 
         except Exception as e:
-            print(f"❌ Failed: {cfg['name']} | Error: {e}")
+            print(f" Failed: {cfg['name']} | Error: {e}")
             torch.cuda.empty_cache()
             gc.collect()
             continue
