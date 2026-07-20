@@ -31,18 +31,6 @@ Cancer detection from histopathology images is challenging but crucial. Early, a
 
 ---
 
-## What’s next?
-
-- Wrap everything in an API or app for easy use by medical professionals.
-
----
-
-## Let’s connect!
-
-Questions, suggestions, or just want to chat about medical AI? Open an issue or get in touch — I’m all ears!
-
----
-
 Thanks for stopping by! Happy coding and here’s to making a difference! 
 
 --- 
